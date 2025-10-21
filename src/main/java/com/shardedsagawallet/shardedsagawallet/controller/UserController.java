@@ -24,6 +24,6 @@ public class UserController {
     @GetMapping("/{id}")
     public ResponseEntity<User> getUserbyid(@PathVariable Long id){
         User user = userService.getUserById(id);
-        return ResponseEntity.status(HttpStatus.ACCEPTED).body(user);
+        return ResponseEntity.ok(user);
     }
 }
