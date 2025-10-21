@@ -19,4 +19,8 @@ public class UserService {
         log.info("user successfully created with id {} in the database shardwallet{}", newUser.getId(),(newUser.getId()%2+1));
         return  newUser;
     }
+    public User getUserById(Long id){
+        log.info("getting the user by id {}",id);
+        return userRepository.findById(id).orElseThrow(() -> new RuntimeException("No such user exists"));
+    }
 }
