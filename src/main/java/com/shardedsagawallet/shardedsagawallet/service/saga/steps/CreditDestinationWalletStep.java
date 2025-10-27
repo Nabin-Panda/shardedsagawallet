@@ -7,6 +7,7 @@ import com.shardedsagawallet.shardedsagawallet.service.saga.SagaStepInterface;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 
@@ -18,31 +19,47 @@ public class CreditDestinationWalletStep implements SagaStepInterface {
 
 
     @Override
+    @Transactional
     public boolean execute(SagaContext context) {
         // Step 1: Get the destination wallet id from the context
-        Long toWalletId = context.getLong("toWalletId");
+        Long toUserId = context.getLong("toUserId");
         BigDecimal amount = context.getBigDecimal("amount");
 
-        log.info("Crediting destination wallet {} with amount {}", toWalletId, amount);
+        log.info("Crediting destination wallet of user {} with amount {}", toUserId, amount);
 
         // Step 2: Fetch the destination wallet from the database with a lock
-        Wallet wallet = walletRepository.findById(toWalletId).orElseThrow(()->new RuntimeException("No Wallet found"));
-        log.info("Wallet fetched with balance {}", wallet.getBalance());
+        Wallet wallet = walletRepository.findByUserIdWithLock(toUserId).orElseThrow(()->new RuntimeException("No Wallet found"));
+        log.info("Wallet fetched with balance for credit {}", wallet.getBalance());
 
         // Step 3: Credit the destination wallet
         wallet.credit(amount);
-        walletRepository.save(wallet);
+        Wallet updatedWallet = walletRepository.save(wallet);
+        return true;
         // Once the context is updated in memory, we need to update the context in the database
-        return false;
     }
 
     @Override
+    @Transactional
     public boolean compensate(SagaContext context) {
-        return false;
+        // Step 1: Get the destination wallet id from the context
+        Long toUserId = context.getLong("toUserId");
+        BigDecimal amount = context.getBigDecimal("amount");
+
+        log.info("compensating credit destination wallet of user {} with amount {}", toUserId, amount);
+
+        // Step 2: Fetch the destination wallet from the database with a lock
+        Wallet wallet = walletRepository.findByUserIdWithLock(toUserId).orElseThrow(()->new RuntimeException("No Wallet found"));
+        log.info("Wallet fetched with balance for debit compensation {}", wallet.getBalance());
+
+        // Step 3: Credit the destination wallet
+        wallet.debit(amount);
+        walletRepository.save(wallet);
+        // Once the context is updated in memory, we need to update the context in the database
+        return true;
     }
 
     @Override
     public String getStepName() {
-        return "";
+        return StepsNames.CREDIT_DESTINATION_WALLET.toString();
     }
 }
